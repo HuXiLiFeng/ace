@@ -4,3 +4,7 @@
 __pycache__/
 */__pycache__/
 results/
+eval/router/data/*.jsonl
+eval/router/data/*.txt
+eval/router/data/conflict_matrix.md
+_*

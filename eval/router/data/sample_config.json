@@ -1,0 +1,7 @@
+{
+    "router": {
+        "train_data": "./eval/router/data/train.jsonl",
+        "val_data": "./eval/router/data/val.jsonl",
+        "test_data": "./eval/router/data/test.jsonl"
+    }
+}
