@@ -294,9 +294,19 @@ Do NOT include any explanation, just output the merged bulletpoint."""
         # Parse playbook
         original_lines, bullets, bullet_line_mapping = self._parse_playbook(playbook)
         
+        # Filter out bullets with empty content (Curator can produce :: with nothing after)
+        empty_count = sum(1 for b in bullets if not b['content'].strip())
+        if empty_count:
+            print(f"  Filtering {empty_count} empty-content bulletpoints")
+        bullets = [b for b in bullets if b['content'].strip()]
+        # Rebuild line mapping with filtered indices
+        bullet_line_mapping = {}
+        for new_idx, bullet in enumerate(bullets):
+            bullet_line_mapping[new_idx] = bullet['line_number'] - 1  # line_idx
+
         if len(bullets) == 0:
             return playbook
-        
+
         print(f"Analyzing {len(bullets)} bulletpoints (threshold={threshold})...")
         
         # Compute embeddings
