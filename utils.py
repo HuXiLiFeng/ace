@@ -12,41 +12,45 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 load_dotenv()
 
 def initialize_clients(api_provider):
-    """Initialize separate clients for generator, reflector, and curator"""
-    if api_provider == "sambanova":
-        # Use SambaNova API
-        base_url = "https://api.sambanova.ai/v1"
-        api_key = os.getenv('SAMBANOVA_API_KEY', '')
-        if not api_key:
-            raise ValueError("SambaNova api key not found in environment variables")
-    elif api_provider == "together":
-        # Use Together API
-        base_url = "https://api.together.xyz/v1"
-        api_key = os.getenv('TOGETHER_API_KEY', '')
-        if not api_key:
-            raise ValueError("Together api key not found in environment variables")
-    elif api_provider == "openai":
-        # Use OpenAI-compatible API (supports DeepSeek, Qwen, GLM via OPENAI_BASE_URL)
-        base_url = os.getenv('OPENAI_BASE_URL', 'https://api.openai.com/v1')
-        api_key = os.getenv('OPENAI_API_KEY', '')
-        if not api_key:
-            raise ValueError("OpenAI api key not found in environment variables")
-    elif api_provider == "commonstack":
-        # Use Commonstack API
-        base_url = "https://api.commonstack.ai/v1"
-        api_key = os.getenv('COMMONSTACK_API_KEY', '')
-        if not api_key:
-            raise ValueError("Commonstack api key not found in environment variables")
-    else:
+    """Initialize separate clients for generator, reflector, and curator.
+
+    Each role can override API key and base URL via env vars:
+      GENERATOR_API_KEY, GENERATOR_BASE_URL
+      REFLECTOR_API_KEY, REFLECTOR_BASE_URL
+      CURATOR_API_KEY, CURATOR_BASE_URL
+    Falls back to provider defaults (OPENAI_API_KEY, OPENAI_BASE_URL, etc.)
+    """
+    # Provider defaults
+    provider_configs = {
+        "sambanova": {"base_url": "https://api.sambanova.ai/v1", "key_env": "SAMBANOVA_API_KEY"},
+        "together": {"base_url": "https://api.together.xyz/v1", "key_env": "TOGETHER_API_KEY"},
+        "openai": {"base_url": "https://api.openai.com/v1", "key_env": "OPENAI_API_KEY"},
+        "commonstack": {"base_url": "https://api.commonstack.ai/v1", "key_env": "COMMONSTACK_API_KEY"},
+    }
+    if api_provider not in provider_configs:
         raise ValueError(
-            f"Invalid api_provider name: {api_provider}. Must be 'sambanova', 'together', 'openai', or 'commonstack'"
+            f"Invalid api_provider name: {api_provider}. "
+            f"Must be one of {list(provider_configs.keys())}"
         )
-        
-    generator_client = openai.OpenAI(api_key=api_key, base_url=base_url)
-    reflector_client = openai.OpenAI(api_key=api_key, base_url=base_url)
-    curator_client = openai.OpenAI(api_key=api_key, base_url=base_url)
-    
-    print(f"Using {api_provider} API for all models")
+    cfg = provider_configs[api_provider]
+    default_url = cfg["base_url"]
+    default_key_env = cfg["key_env"]
+
+    def _make_client(role: str):
+        url = os.getenv(f"{role}_BASE_URL", os.getenv("OPENAI_BASE_URL", default_url))
+        key = os.getenv(f"{role}_API_KEY", os.getenv(default_key_env, ""))
+        if not key:
+            raise ValueError(f"API key not found for {role}: set {role}_API_KEY or {default_key_env}")
+        return openai.OpenAI(api_key=key, base_url=url)
+
+    generator_client = _make_client("GENERATOR")
+    reflector_client = _make_client("REFLECTOR")
+    curator_client = _make_client("CURATOR")
+
+    print(f"Using {api_provider}-compatible APIs:")
+    print(f"  Generator:  {generator_client.base_url}")
+    print(f"  Reflector:  {reflector_client.base_url}")
+    print(f"  Curator:    {curator_client.base_url}")
     return generator_client, reflector_client, curator_client
 
 def get_section_slug(section_name):

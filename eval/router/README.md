@@ -112,30 +112,43 @@ uv run python -m eval.router.seed_playbook \
 
 ### Step 4: ACE 离线训练
 
+每个角色可配独立模型和 API endpoint（通过 `.env` 中 `GENERATOR_*`、`REFLECTOR_*`、`CURATOR_*` 环境变量）：
+
 ```bash
-uv run python -m eval.router.run \
+python -m eval.router.run \
     --mode offline \
     --api_provider openai \
-    --generator_model deepseek-v4-pro \
-    --reflector_model deepseek-v4-pro \
-    --curator_model deepseek-v4-pro \
+    --generator_model qwen3-30b-a3b \
+    --reflector_model glm5.2 \
+    --curator_model glm5.2 \
     --num_epochs 3 \
     --eval_steps 50 \
-    --seed_playbook_path ./eval/router/data/seed_playbook.txt \
+    --json_mode \
+    --use_bulletpoint_analyzer \
+    --batch_size 8 \
+    --seed_playbook_path eval/router/data/seed_playbook.txt \
     --agent_info_path task_info/agent_info.json \
-    --save_path ./results/router
+    --save_path results/router
 ```
+
+关键参数说明：
+| 参数 | 说明 |
+|---|---|
+| `--json_mode` | 强制 JSON 输出，路由结果必须精确解析 agent 名 |
+| `--use_bulletpoint_analyzer` | Playbook 语义去重，防止规则膨胀（需 `pip install sentence-transformers faiss-cpu`） |
+| `--batch_size 8` | 一次处理 8 条样本，Curator 能跨样本提取通用规则 |
+| `--eval_steps 50` | 每 50 步评估一次验证集，保存最优 Playbook |
 
 ### Step 5: 评估
 
 ```bash
-uv run python -m eval.router.run \
+python -m eval.router.run \
     --mode eval_only \
     --api_provider openai \
-    --generator_model deepseek-v4-pro \
-    --initial_playbook_path ./results/router/<run>/best_playbook.txt \
+    --generator_model qwen3-30b-a3b \
+    --initial_playbook_path results/router/<run>/best_playbook.txt \
     --agent_info_path task_info/agent_info.json \
-    --save_path ./results/router/eval
+    --save_path results/router/eval
 ```
 
 ### （可选）对抗增强

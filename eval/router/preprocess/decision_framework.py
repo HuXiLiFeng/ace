@@ -43,8 +43,8 @@ STEP 2: ...
 
 TOP_ROUTER_PROMPT = """你是一个消费金融智能客服路由系统。请生成一个顶层路由框架，用于决定query应该使用哪个微决策流程。
 
-可用的微决策流程（每个针对一对高频混淆Agent）:
-{micro_trees_summary}
+已生成的微决策流程内容（每个针对一对高频混淆Agent），顶层路由应引用这些流程的名称来做分发:
+{micro_trees_content}
 
 所有Agent列表:
 {agent_list}
@@ -141,9 +141,8 @@ def generate_decision_framework(
 ) -> str:
     """Generate the full DECISION FRAMEWORK section for the Playbook."""
     micro_trees = []
-    micro_tree_summaries = []
 
-    for agent_a, agent_b, count in conflict_pairs[:5]:
+    for agent_a, agent_b, _ in conflict_pairs[:5]:
         pair_key = (agent_a, agent_b)
         notes = human_notes_by_pair.get(pair_key, [])
         if len(notes) == 0:
@@ -151,13 +150,10 @@ def generate_decision_framework(
         print(f"  Generating micro-tree for: {agent_a} vs {agent_b} ({len(notes)} notes)")
         tree = generate_micro_tree(agent_a, agent_b, notes, agent_info_path, api_client, model)
         micro_trees.append(tree)
-        micro_tree_summaries.append(
-            f"- {agent_a} vs {agent_b} (混淆{count}次, {len(notes)}条human_note)"
-        )
 
     agent_info_text = load_agent_info_text(agent_info_path)
     prompt = TOP_ROUTER_PROMPT.format(
-        micro_trees_summary="\n".join(micro_tree_summaries),
+        micro_trees_content="\n\n".join(micro_trees) if micro_trees else "(无预生成的微决策流程)",
         agent_list=agent_info_text,
         exclusion_rules=exclusion_rules_text or "(待生成)"
     )
