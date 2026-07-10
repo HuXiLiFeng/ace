@@ -100,10 +100,14 @@ def main():
     # at class definition time via module-level imports.
     from .prompts.generator import ROUTING_GENERATOR_PROMPT
     from .prompts.reflector import ROUTING_REFLECTOR_PROMPT
+    from .prompts.curator import ROUTING_CURATOR_PROMPT, ROUTING_CURATOR_PROMPT_NO_GT
     import ace.prompts.generator as gen_prompts
     import ace.prompts.reflector as ref_prompts
+    import ace.prompts.curator as cur_prompts
     gen_prompts.GENERATOR_PROMPT = ROUTING_GENERATOR_PROMPT
     ref_prompts.REFLECTOR_PROMPT = ROUTING_REFLECTOR_PROMPT
+    cur_prompts.CURATOR_PROMPT = ROUTING_CURATOR_PROMPT
+    cur_prompts.CURATOR_PROMPT_NO_GT = ROUTING_CURATOR_PROMPT_NO_GT
 
     from ace import ACE, ACEBatch
 

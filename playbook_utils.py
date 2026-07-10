@@ -95,124 +95,118 @@ def update_bullet_counts(playbook_text, bullet_tags):
 
 def apply_curator_operations(playbook_text, operations, next_id):
     """
-    Apply curator operations to playbook
-    
-    TODO: Future Operations (not implemented yet)
-    - UPDATE: Rewrite existing bullets to be more accurate or comprehensive
-    - MERGE: Combine related bullets into stronger ones  
-    - CREATE_META: Add high-level strategy sections
-    - DELETE: Remove outdated or incorrect bullets (if needed)
+    Apply curator operations to playbook.
+
+    Supported: ADD, MODIFY, DELETE. KEEP is a no-op (no operation entry).
+    Execution order: DELETE > MODIFY > ADD.
+    MODIFY with unknown target_bullet_id downgrades to ADD.
+    DELETE with unknown target_bullet_id is silently skipped.
     """
     lines = playbook_text.strip().split('\n')
-    
+
     # Build section map
     sections = {}
     current_section = "general"
-    section_line_map = {}  # Track which line each section header is on
-    
     for i, line in enumerate(lines):
         if line.strip().startswith('##'):
-            # Extract section name and normalize it
             section_header = line.strip()[2:].strip()
             current_section = section_header.lower().replace(' ', '_').replace('&', 'and')
-            section_line_map[current_section] = i
             if current_section not in sections:
                 sections[current_section] = []
         elif line.strip():
             sections[current_section].append((i, line))
-    
-    # Process operations
+
+    # ---- Pass 1: collect operations ----
     bullets_to_add = []
-    
+    bullets_to_modify = {}
+    bullets_to_delete = set()
+
     for op in operations:
-        op_type = op['type']
-        
-        # TODO: Future operation types (not implemented yet)
-        # elif op_type == 'UPDATE':
-        #     bullet_id = op.get('bullet_id', '')
-                    #     new_content = op.get('content', '')
-            #     bullets_to_update[bullet_id] = new_content
-        # elif op_type == 'MERGE':
-        #     source_ids = op.get('source_ids', [])
-        #     bullets_to_delete.update(source_ids)
-        #     # Add merged bullet logic here
-        # elif op_type == 'CREATE_META':
-        #     section_name = op.get('section_name', 'META_STRATEGIES')
-        #     # Add meta section creation logic here
-        
-        if op_type == 'ADD':
-            # Normalize section name from operation
+        op_type = op.get('type', '').upper()
+
+        if op_type == 'DELETE':
+            tid = op.get('target_bullet_id', '')
+            if tid:
+                bullets_to_delete.add(tid)
+
+        elif op_type == 'MODIFY':
+            tid = op.get('target_bullet_id', '')
+            content = op.get('content', '')
+            # DELETE wins when both target the same rule
+            if tid and content and tid not in bullets_to_delete:
+                bullets_to_modify[tid] = content
+
+        elif op_type == 'ADD':
             section_raw = op.get('section', 'general')
             section = section_raw.lower().replace(' ', '_').replace('&', 'and')
-            
-            # Check if section exists, if not use 'others'
             if section not in sections and section != 'general':
-                print(f"Warning: Section '{section_raw}' not found, adding to OTHERS")
                 section = 'others'
-            
+
             slug = get_section_slug(section)
             new_id = f"{slug}-{next_id:05d}"
             next_id += 1
-            
+
             content = op.get('content', '')
-            
             new_line = format_playbook_line(new_id, 0, 0, content)
             bullets_to_add.append((section, new_line))
-            print(f"  Added bullet {new_id} to section {section}")
-            
 
-    
-    # Rebuild playbook
+    # ---- Pass 2: rebuild with DELETE and MODIFY ----
     new_lines = []
     for line in lines:
         parsed = parse_playbook_line(line)
         if parsed:
-            new_lines.append(line)
-        else:
-            new_lines.append(line)
-    
-    # Add new bullets to appropriate sections
+            bid = parsed['id']
+            if bid in bullets_to_delete:
+                continue
+            if bid in bullets_to_modify:
+                new_line = format_playbook_line(
+                    bid, parsed['helpful'], parsed['harmful'],
+                    bullets_to_modify.pop(bid)
+                )
+                new_lines.append(new_line)
+                continue
+        new_lines.append(line)
+
+    # Downgrade unconsumed MODIFY to ADD
+    for tid, content in bullets_to_modify.items():
+        print(f"Warning: MODIFY target '{tid}' not found, downgrading to ADD")
+        new_id = f"misc-{next_id:05d}"
+        next_id += 1
+        new_line = format_playbook_line(new_id, 0, 0, content)
+        bullets_to_add.append(('others', new_line))
+
+    # ---- Pass 3: insert ADD bullets ----
     final_lines = []
     current_section = None
-    
+
     for line in new_lines:
         if line.strip().startswith('##'):
-            # Before moving to new section, add any bullets for current section
             if current_section:
                 section_adds = [b for s, b in bullets_to_add if s == current_section]
                 final_lines.extend(section_adds)
-                # Clear added bullets
                 bullets_to_add = [(s, b) for s, b in bullets_to_add if s != current_section]
-            
             section_header = line.strip()[2:].strip()
             current_section = section_header.lower().replace(' ', '_').replace('&', 'and')
         final_lines.append(line)
-    
-    # Add remaining bullets to current section
+
     if current_section:
         section_adds = [b for s, b in bullets_to_add if s == current_section]
         final_lines.extend(section_adds)
         bullets_to_add = [(s, b) for s, b in bullets_to_add if s != current_section]
-    
-    # If there are still bullets to add (for sections that don't exist), add them to OTHERS
+
     if bullets_to_add:
-        print(f"Warning: {len(bullets_to_add)} bullets have no matching section, adding to OTHERS")
-        others_bullets = [b for s, b in bullets_to_add]
-        # Find OTHERS section
+        others_bullets = [b for _, b in bullets_to_add]
         others_idx = -1
         for i, line in enumerate(final_lines):
             if line.strip() == "## OTHERS":
                 others_idx = i
                 break
-        
         if others_idx >= 0:
-            # Insert after OTHERS header
             for i, bullet in enumerate(others_bullets):
                 final_lines.insert(others_idx + 1 + i, bullet)
         else:
-            # Append to end
             final_lines.extend(others_bullets)
-    
+
     return '\n'.join(final_lines), next_id
 
 def get_playbook_stats(playbook_text):

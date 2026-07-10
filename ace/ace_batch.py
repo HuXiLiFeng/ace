@@ -24,6 +24,45 @@ from utils import *
 INCORRECT_DUE_TO_API_ERROR = "INCORRECT_DUE_TO_API_ERROR"
 
 
+def _group_reflections(reflections, start_idx=0):
+    """Group reflections by the bullet_ids referenced in their content.
+
+    Reflections that mention the same [xxx-NNNNN] pattern are clustered together.
+    Orphans (no bullet_id references) are grouped under "新洞察".
+    """
+    import re
+    from collections import defaultdict
+
+    groups = defaultdict(list)
+    orphans = []
+
+    for i, r in enumerate(reflections):
+        if not r or r == "(empty)":
+            continue
+        # Match bullet_id patterns like [str-00042], [err-00012]
+        ids = set(re.findall(r'\[([a-z]{3,}-\d{5})\]', r))
+        if ids:
+            for bid in ids:
+                groups[bid].append((i, r))
+        else:
+            orphans.append((i, r))
+
+    parts = []
+    for bid in sorted(groups.keys()):
+        parts.append(f"### 针对规则 [{bid}] 的反馈")
+        for ii, rr in groups[bid]:
+            parts.append(f"  [样本 {start_idx + ii + 1}] {rr[:800]}")
+        parts.append("")
+
+    if orphans:
+        parts.append("### 新洞察（未涉及现有规则）")
+        for ii, rr in orphans:
+            parts.append(f"  [样本 {start_idx + ii + 1}] {rr[:800]}")
+        parts.append("")
+
+    return "\n".join(parts) if parts else "(empty)"
+
+
 class ACEBatch:
     """
     Batched ACE: parallel generator+reflector per mini-batch, chunked curator (cbs), then parallel post-curate.
@@ -815,11 +854,10 @@ class ACEBatch:
             end_idx = min(start_idx + curator_batch_size, len(all_reflections))
             chunk_reflections = all_reflections[start_idx:end_idx]
             chunk_contexts = all_contexts[start_idx:end_idx]
-            combined_reflection = "\n\n---\n\n".join(
-                f"[Sample {start_idx + i + 1}] {r}"
-                for i, r in enumerate(chunk_reflections)
-                if r != "(empty)"
-            )
+            # Group reflections by referenced bullet_ids before passing to Curator.
+            # Reflections that share the same target rule are clustered together,
+            # making it easier for Curator to consolidate into one operation.
+            combined_reflection = _group_reflections(chunk_reflections, start_idx)
             if not combined_reflection:
                 combined_reflection = "(empty)"
             combined_context = "\n\n---\n\n".join(

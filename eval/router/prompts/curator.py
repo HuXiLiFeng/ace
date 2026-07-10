@@ -1,26 +1,43 @@
-"""
-Curator prompts for ACE system.
-"""
+"""Custom Curator prompt for routing task — 4 operations (ADD/MODIFY/DELETE/KEEP)."""
 
-# Curator prompt for intelligent playbook management
-CURATOR_PROMPT = """You are a master curator of knowledge. Your job is to identify what new insights should be added to an existing playbook based on a reflection from a previous attempt.
+ROUTING_CURATOR_PROMPT = """You are a master curator of knowledge. Your job is to identify what new insights should be added to an existing playbook based on a reflection from a previous attempt.
 
 **Context:**
-- The playbook you created will be used to help answering similar questions. 
-- The reflection is generated using ground truth answers that will NOT be available when the playbook is being used. So you need to come up with content that can aid the playbook user to create predictions that likely align with ground truth. 
+- The playbook you created will be used to help answer similar routing questions.
+- The reflection is generated using ground truth answers that will NOT be available when the playbook is being used.
 
 **CRITICAL: You MUST respond with valid JSON only. Do not use markdown formatting or code blocks.**
 
 **Instructions:**
 - Review the existing playbook and the reflection from the previous attempt
 - Identify ONLY the NEW insights, strategies, or mistakes that are MISSING from the current playbook
-- Avoid redundancy - if similar advice already exists, only add new content that is a perfect complement to the existing playbook
+- Avoid redundancy - if similar advice already exists, only add new content
 - Do NOT regenerate the entire playbook - only provide the additions needed
-- Focus on quality over quantity - a focused, well-organized playbook is better than an exhaustive one
-- Format your response as a PURE JSON object with specific sections
-- For any operation if no new content to add, return an empty list for the operations field
-- Be concise and specific - each addition should be actionable
+- Focus on quality over quantity
 
+**Available Operations:**
+1. ADD: Append a brand-new rule that does not overlap with any existing bullet.
+    - section: the target section name
+    - content: the new rule as ONE concise Chinese sentence (concise Chinese sentence). No need to include bullet_id.
+
+2. MODIFY: Update an existing rule that is inaccurate or incomplete.
+    Use when the new insight refines rather than replaces an existing rule.
+    - target_bullet_id: the [id] of the existing bullet to modify (e.g. "str-00042")
+    - section: the target section name
+    - content: the revised rule (concise Chinese sentence)
+    IMPORTANT: If multiple reflections reference the same target_bullet_id,
+    merge them into a SINGLE MODIFY operation.
+
+3. DELETE: Remove a low-quality rule proven harmful or superseded.
+    - target_bullet_id: the [id] of the bullet to delete
+
+4. KEEP: Take no action. Use when the insight is already covered.
+    Produces NO operation entry.
+
+**Key Rules:**
+- If multiple reflections point to the same existing rule, merge into ONE operation.
+- When in doubt MODIFY vs DELETE, prefer MODIFY (refine rather than discard).
+- When in doubt ADD vs KEEP, prefer KEEP (avoid redundancy).
 
 **Training Context:**
 - Total token budget: {token_budget} tokens
@@ -38,38 +55,6 @@ CURATOR_PROMPT = """You are a master curator of knowledge. Your job is to identi
 **Question Context:**
 {question_context}
 
-**Your Task:**
-Output ONLY a valid JSON object with these exact fields:
-- reasoning: your chain of thought / reasoning / thinking process, detailed analysis and calculations
-- operations: a list of operations to be performed on the playbook
-  - type: the type of operation to be performed
-  - section: the section to add the bullet to
-  - content: the new content of the bullet
-
-**Available Operations:**
-1. ADD: Append a brand-new rule that does not overlap with any existing bullet.
-    - section: the target section name
-    - content: the new rule as ONE concise sentence. No need to include bullet_id.
-
-2. MODIFY: Update an existing rule that is inaccurate or incomplete.
-    Use when the new insight refines rather than replaces an existing rule.
-    - target_bullet_id: the [id] of the existing bullet to modify (e.g. "str-00042")
-    - section: the target section name
-    - content: the revised rule (ONE concise sentence)
-    IMPORTANT: If multiple reflections reference the same target_bullet_id,
-    merge them into a SINGLE MODIFY operation.
-
-3. DELETE: Remove a low-quality rule proven harmful or superseded.
-    - target_bullet_id: the [id] of the bullet to delete
-
-4. KEEP: Take no action. Use when the insight is already covered.
-    Produces NO operation entry.
-
-**Key Rules:**
-- If multiple reflections point to the same existing rule, merge into ONE operation.
-- When in doubt MODIFY vs DELETE, prefer MODIFY (refine rather than discard).
-- When in doubt ADD vs KEEP, prefer KEEP (avoid redundancy).
-
 **RESPONSE FORMAT - Output ONLY this JSON structure (no markdown, no code blocks):**
 {{
   "reasoning": "[Your chain of thought here]",
@@ -77,13 +62,13 @@ Output ONLY a valid JSON object with these exact fields:
     {{
       "type": "ADD",
       "section": "common_mistakes_to_avoid",
-      "content": "[One concise rule]"
+      "content": "[One concise Chinese sentence, concise]"
     }},
     {{
       "type": "MODIFY",
       "target_bullet_id": "str-00003",
-      "section": "strategies_and_insights",
-      "content": "[Revised concise rule]"
+      "section": "routing_strategies",
+      "content": "[Revised concise Chinese sentence, concise]"
     }},
     {{
       "type": "DELETE",
@@ -95,10 +80,10 @@ Output ONLY a valid JSON object with these exact fields:
 ---
 """
 
-CURATOR_PROMPT_NO_GT = """You are a master curator of knowledge. Your job is to identify what new insights should be added to an existing playbook based on a reflection from a previous attempt.
+ROUTING_CURATOR_PROMPT_NO_GT = """You are a master curator of knowledge. Your job is to identify what new insights should be added to an existing playbook based on a reflection from a previous attempt.
 
 **Context:**
-- The playbook you created will be used to help answering similar questions. 
+- The playbook you created will be used to help answer similar routing questions.
 - The reflection is generated using environment feedback that will NOT be available when the playbook is being used.
 
 **CRITICAL: You MUST respond with valid JSON only. Do not use markdown formatting or code blocks.**
@@ -106,13 +91,33 @@ CURATOR_PROMPT_NO_GT = """You are a master curator of knowledge. Your job is to 
 **Instructions:**
 - Review the existing playbook and the reflection from the previous attempt
 - Identify ONLY the NEW insights, strategies, or mistakes that are MISSING from the current playbook
-- Avoid redundancy - if similar advice already exists, only add new content that is a perfect complement to the existing playbook
+- Avoid redundancy - if similar advice already exists, only add new content
 - Do NOT regenerate the entire playbook - only provide the additions needed
-- Focus on quality over quantity - a focused, well-organized playbook is better than an exhaustive one
-- Format your response as a PURE JSON object with specific sections
-- For any operation if no new content to add, return an empty list for the operations field
-- Be concise and specific - each addition should be actionable
+- Focus on quality over quantity
 
+**Available Operations:**
+1. ADD: Append a brand-new rule that does not overlap with any existing bullet.
+    - section: the target section name
+    - content: the new rule as ONE concise Chinese sentence (concise Chinese sentence). No need to include bullet_id.
+
+2. MODIFY: Update an existing rule that is inaccurate or incomplete.
+    Use when the new insight refines rather than replaces an existing rule.
+    - target_bullet_id: the [id] of the existing bullet to modify (e.g. "str-00042")
+    - section: the target section name
+    - content: the revised rule (concise Chinese sentence)
+    IMPORTANT: If multiple reflections reference the same target_bullet_id,
+    merge them into a SINGLE MODIFY operation.
+
+3. DELETE: Remove a low-quality rule proven harmful or superseded.
+    - target_bullet_id: the [id] of the bullet to delete
+
+4. KEEP: Take no action. Use when the insight is already covered.
+    Produces NO operation entry.
+
+**Key Rules:**
+- If multiple reflections point to the same existing rule, merge into ONE operation.
+- When in doubt MODIFY vs DELETE, prefer MODIFY (refine rather than discard).
+- When in doubt ADD vs KEEP, prefer KEEP (avoid redundancy).
 
 **Training Context:**
 - Total token budget: {token_budget} tokens
@@ -130,38 +135,6 @@ CURATOR_PROMPT_NO_GT = """You are a master curator of knowledge. Your job is to 
 **Question Context:**
 {question_context}
 
-**Your Task:**
-Output ONLY a valid JSON object with these exact fields:
-- reasoning: your chain of thought / reasoning / thinking process, detailed analysis and calculations
-- operations: a list of operations to be performed on the playbook
-  - type: the type of operation to be performed
-  - section: the section to add the bullet to
-  - content: the new content of the bullet
-
-**Available Operations:**
-1. ADD: Append a brand-new rule that does not overlap with any existing bullet.
-    - section: the target section name
-    - content: the new rule as ONE concise sentence. No need to include bullet_id.
-
-2. MODIFY: Update an existing rule that is inaccurate or incomplete.
-    Use when the new insight refines rather than replaces an existing rule.
-    - target_bullet_id: the [id] of the existing bullet to modify (e.g. "str-00042")
-    - section: the target section name
-    - content: the revised rule (ONE concise sentence)
-    IMPORTANT: If multiple reflections reference the same target_bullet_id,
-    merge them into a SINGLE MODIFY operation.
-
-3. DELETE: Remove a low-quality rule proven harmful or superseded.
-    - target_bullet_id: the [id] of the bullet to delete
-
-4. KEEP: Take no action. Use when the insight is already covered.
-    Produces NO operation entry.
-
-**Key Rules:**
-- If multiple reflections point to the same existing rule, merge into ONE operation.
-- When in doubt MODIFY vs DELETE, prefer MODIFY (refine rather than discard).
-- When in doubt ADD vs KEEP, prefer KEEP (avoid redundancy).
-
 **RESPONSE FORMAT - Output ONLY this JSON structure (no markdown, no code blocks):**
 {{
   "reasoning": "[Your chain of thought here]",
@@ -169,13 +142,13 @@ Output ONLY a valid JSON object with these exact fields:
     {{
       "type": "ADD",
       "section": "common_mistakes_to_avoid",
-      "content": "[One concise rule]"
+      "content": "[One concise Chinese sentence, concise]"
     }},
     {{
       "type": "MODIFY",
       "target_bullet_id": "str-00003",
-      "section": "strategies_and_insights",
-      "content": "[Revised concise rule]"
+      "section": "routing_strategies",
+      "content": "[Revised concise Chinese sentence, concise]"
     }},
     {{
       "type": "DELETE",
