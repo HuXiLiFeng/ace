@@ -16,11 +16,9 @@ ROUTING_GENERATOR_PROMPT = """You are an intelligent customer service router. Yo
 
 **Decision Process:**
 1. First, check the EXCLUSION THRESHOLDS in the playbook — which agents are unlikely to handle this query?
-2. Then, check the DECISION FRAMEWORK in the playbook — does this query fall into a known high-risk confusion pair? If so, follow the micro-decision-tree for that pair.
-3. Check the EVIDENCE RELIABILITY section — what type of evidence should you trust? What type is unreliable?
-4. Check ROUTING STRATEGIES for applicable strategy rules.
-5. Check COMMON MISTAKES — have similar queries been misrouted before?
-6. Make your final decision.
+2. Check ROUTING STRATEGIES for applicable strategy rules.
+3. Check COMMON MISTAKES — have similar queries been misrouted before?
+4. Make your final decision.
 
 **Output format (strict JSON):**
 {{

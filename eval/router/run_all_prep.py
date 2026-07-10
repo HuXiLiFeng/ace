@@ -21,25 +21,9 @@ STEPS = [
      "--input eval/router/data/train.jsonl "
      "--output eval/router/data/conflict_matrix.md"),
 
-    ("Core #3: Evidence Assessment",
-     f"{PYTHON} -m eval.router.preprocess.evidence_assessment "
-     "--a_data eval/router/data/train.jsonl --b_data eval/router/data/train.jsonl "
-     "--api_provider openai --model deepseek-v4-pro "
-     "--output eval/router/data/evidence_reliability.txt"),
-
-    ("Core #2: Decision Framework",
-     f"{PYTHON} -m eval.router.preprocess.decision_framework "
-     "--agent_info task_info/agent_info.json "
-     "--a_data eval/router/data/train.jsonl "
-     "--exclusion_rules_file eval/router/data/exclusion_rules.txt "
-     "--api_provider openai --model deepseek-v4-pro "
-     "--output eval/router/data/decision_framework.txt"),
-
     ("Seed Playbook",
      f"{PYTHON} -m eval.router.seed_playbook "
      "--exclusion_rules eval/router/data/exclusion_rules.txt "
-     "--decision_framework eval/router/data/decision_framework.txt "
-     "--evidence_reliability eval/router/data/evidence_reliability.txt "
      "--output eval/router/data/seed_playbook.txt"),
 ]
 
