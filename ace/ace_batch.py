@@ -39,8 +39,8 @@ def _group_reflections(reflections, start_idx=0):
     for i, r in enumerate(reflections):
         if not r or r == "(empty)":
             continue
-        # Match bullet_id patterns like [str-00042], [err-00012]
-        ids = set(re.findall(r'\[([a-z]{3,}-\d{5})\]', r))
+        # Match bullet_id patterns in any context: [str-00042], "str-00042", str-00042
+        ids = set(re.findall(r'([a-z]{3,}-\d{5})', r))
         if ids:
             for bid in ids:
                 groups[bid].append((i, r))
