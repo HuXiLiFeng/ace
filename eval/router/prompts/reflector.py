@@ -7,53 +7,53 @@ The human annotator's note is embedded into the "question" field by DataProcesso
 (with a 【人工标注理由】 marker). The Reflector should extract and analyze it.
 """
 
-ROUTING_REFLECTOR_PROMPT = """You are an expert analyst of intelligent customer service routing systems. Your job is to diagnose why the model's routing decision went wrong by comparing the model's reasoning chain with the human annotator's reasoning chain.
+ROUTING_REFLECTOR_PROMPT = """你是智能客服路由系统的专家分析师。你的任务是通过对比模型的推理链和人工标注者的推理链，诊断模型的路由决策为什么会出错。
 
-**Instructions:**
-- The Question field below MAY contain a 【人工标注理由】 section with the human annotator's reasoning note. If present, compare it against the model's reasoning trace.
-- If the human_note is very short (<20 characters) or absent, only use explicitly stated information — do NOT over-infer the human's reasoning process
-- If the human_note is too brief to determine the reasoning chain, note "信息不足" in your analysis
-- Provide actionable insights about STRATEGY SELECTION — not just "what" went wrong, but "how" the model should have approached the decision
-- Tag each used playbook bullet as helpful/harmful/neutral.
+**指令：**
+- 下方的Question字段中可能包含【人工标注理由】段落。如果有，请将其与模型的推理链进行对比。
+- 如果human_note非常短（<20字）或不存在，只使用其中明确表达的信息——不要过度推测标注者的推理过程。
+- 如果human_note过于简短而无法判断推理链，在分析中标注"信息不足"。
+- 提供关于策略选择的可行洞察——不仅仅是"什么出了错"，更要指出模型"应该如何调整判断方式"。
+- 对Generator使用的每条Playbook规则标注tag：helpful（有帮助）/ harmful（有害）/ neutral（中性）。
 
-**Your output should be a json object with these fields:**
-- reasoning: your chain of thought, detailed analysis comparing the two reasoning paths (if human_note available)
-- strategy_analysis: what strategy did the model use? what strategy did the human use? what's the essential difference?
-- strategy_selection_rule: if the error was caused by using the wrong strategy, describe when to use which strategy (leave empty if human_note is too short to infer)
-- error_identification: what specifically went wrong in the model's reasoning?
-- root_cause_analysis: why did this error occur? what concept or priority was misunderstood?
-- correct_approach: what should the model have done instead?
-- key_insight: what strategy, principle, or rule should be remembered to avoid this error?
-- human_note_sufficient: true/false — was the human_note detailed enough to extract strategy-level insights?
-- bullet_tags: a list of json objects with bullet_id and tag for each bulletpoint used by the generator
+**输出字段（JSON）：**
+- reasoning: 你的推理过程，详细对比模型和人工的推理路径
+- strategy_analysis: 模型用了什么判断策略？人工用了什么判断策略？本质区别是什么？
+- strategy_selection_rule: 如果错误是由于选错了策略导致的，描述何时该用哪种策略（human_note信息不足时留空）
+- error_identification: 模型的推理中具体哪里出了问题？
+- root_cause_analysis: 为什么会发生这个错误？哪个概念或优先级被误解了？
+- correct_approach: 模型本应如何进行判断？
+- key_insight: 应该记住什么策略、原则或规则来避免此错误？
+- human_note_sufficient: true/false —— human_note的信息是否足够提取策略层面的洞察？
+- bullet_tags: 列表，每项包含bullet_id和tag（helpful/harmful/neutral）
 
-**Question (may contain 【人工标注理由】):**
+**Question（可能包含【人工标注理由】）：**
 {}
 
-**Model's Reasoning Trace:**
+**模型的推理过程：**
 {}
 
-**Model's Predicted Answer:**
+**模型的预测答案：**
 {}
 
-**Ground Truth Answer (Human Annotator):**
+**正确答案（人工标注）：**
 {}
 
-**Environment Feedback:**
+**环境反馈：**
 {}
 
-**Part of Playbook that's used by the generator:**
+**Generator使用的Playbook片段：**
 {}
 
-**Answer in this exact JSON format:**
+**请严格按以下JSON格式输出：**
 {{
-  "reasoning": "[Detailed analysis comparing model vs human reasoning paths]",
-  "strategy_analysis": "[Model strategy vs human strategy — what's the essential difference?]",
-  "strategy_selection_rule": "[When to use which strategy — only if human_note is sufficient]",
-  "error_identification": "[What specifically went wrong?]",
-  "root_cause_analysis": "[Why did this error occur?]",
-  "correct_approach": "[What should the model have done instead?]",
-  "key_insight": "[What strategy or principle should be remembered?]",
+  "reasoning": "[详细对比模型和人工推理路径的分析]",
+  "strategy_analysis": "[模型策略 vs 人工策略 —— 本质区别是什么？]",
+  "strategy_selection_rule": "[何时该用哪种策略 —— 仅在human_note信息充足时填写]",
+  "error_identification": "[推理中具体哪里出了问题？]",
+  "root_cause_analysis": "[为什么会发生这个错误？]",
+  "correct_approach": "[模型本应如何判断？]",
+  "key_insight": "[应该记住什么策略或原则？]",
   "human_note_sufficient": true,
   "bullet_tags": [
     {{"id": "str-00001", "tag": "helpful"}},
